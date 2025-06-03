@@ -1,0 +1,385 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xplatforms.v1.data.mid93.mid93.com
+spec:
+  group: v1.data.mid93.mid93.com
+  names:
+    kind: XPlatform
+    plural: xplatforms
+  claimNames:
+    kind: Platform
+    plural: platforms
+  versions:
+    - name: v1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                parameters:
+                  type: object
+                  properties:
+                    ########## Mandatory Inputs ##########
+                    # The following input properties  are mandatory for all mid93 capabilities
+                    capability:
+                      type: object
+                      properties:
+                        protected:
+                          type: boolean
+                        token:
+                          type: string
+                        version:
+                          type: string
+                      required:
+                        - version
+                    environment:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                      required:
+                        - name
+                    ########## Capability Inputs ##########
+                    # Capability specific input parameters should be specified here
+                    fetch:
+                      type: object
+                      properties:
+                        vpc:
+                          type: boolean
+                        cluster:
+                          type: boolean
+                  required:
+                    - capability
+                    - environment
+              required:
+                - parameters
+            status:
+              type: object
+              properties:
+                atProvider:
+                  type: object
+                  properties:
+                    ########## Mandatory Outputs ##########
+                    # The following output parameters are mandatory for all mid93 capabilities
+                    capability:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+                        prefix:
+                          type: string
+                        token:
+                          type: string
+                        workspace:
+                          type: string
+                    ########## Capability Outputs ##########
+                    # Capability specific output parameters should be specified here
+                    application:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                    team:
+                      type: object
+                      properties:
+                        names:
+                          type: array
+                          items:
+                            type: string
+                    workload:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        region:
+                          type: string
+                        vpc:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                        subnets:
+                          type: array
+                          items:
+                            type: string
+                        azs:
+                          type: array
+                          items:
+                            type: string
+                        amp:
+                          type: object
+                          properties:
+                            endpoint:
+                              type: string
+                    environment:
+                      type: object
+                      properties:
+                        securitygroup:
+                          type: object
+                          properties:
+                            name:
+                              type: string
+                            id:
+                              type: string
+                    cluster:
+                      type: object
+                      properties:
+                        arn:
+                          type: string
+                        name:
+                          type: string
+                        oidc:
+                          type: object
+                          properties:
+                            arn:
+                              type: string
+                            issuer:
+                              type: string
+                        permissionsBoundary:
+                          type: object
+                          properties:
+                            arn:
+                              type: string
+                    account:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                    estate:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                    platform:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                    grafana:
+                      type: object
+                      properties:
+                        endpoint:
+                          type: string
+                        roleArn:
+                          type: string
+
+...
+---
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xplatforms.v1.data.mid93.mid93.com
+spec:
+  compositeTypeRef:
+    apiVersion: v1.data.mid93.mid93.com/v1
+    kind: XPlatform
+  #checkov:skip=CKV_SECRET_6:False positive from checkov as this is not a secret
+  writeConnectionSecretsToNamespace: crossplane
+  resources:
+    - name: XWorkspace
+      base:
+        apiVersion: tf.upbound.io/v1beta1
+        kind: Workspace
+        spec:
+          forProvider:
+            module: ""
+            source: Remote
+            entrypoint: capabilities/data/platform/v1 # This entrypoint must match the capability folder location within the mid93 crossplane repository
+            varmap:
+              ########## Mandatory Inputs ##########
+              # The following input variables are mandatory for all mid93 capabilities
+              capability_id: ""
+              capability_name: ""
+              capability_namespace: ""
+              capability_protected: true
+              capability_token: ""
+              capability_version: ""
+              environment_name: ""
+              ########## Capability Inputs #########
+              # Capability specific input variables should be defined here
+              fetch_vpc: false
+              fetch_cluster: false
+          providerConfigRef:
+            name: provider-terraform
+          ##### Outputs as secrets #####          
+          writeConnectionSecretToRef:
+            name: secret
+            namespace: crossplane
+      patches:
+        ########## Mandatory Inputs #########
+        # The following input variables are mandatory for all mid93 capabilities
+        #
+        # Patch the module source using the capability version specified in the parameters
+        # using the verions as a ref in the Github repo. This allows consumers to specify
+        # the version of terraform that will be used when provisioning or upgrading
+        # the capability resources
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.parameters.capability.version
+            strategy: string
+            string:
+              fmt: git::https://github.com/zahidferz/mid93-crossplane.git?ref=%s
+          toFieldPath: spec.forProvider.module
+        # Patch the input id variable using the metadata name
+        - type: FromCompositeFieldPath
+          fromFieldPath: metadata.name
+          toFieldPath: spec.forProvider.varmap.capability_id
+        # Patch the input name variable using the metadata name
+        # This is required when creating a cluster scoped composite resource
+        - type: FromCompositeFieldPath
+          fromFieldPath: metadata.name
+          toFieldPath: spec.forProvider.varmap.capability_name
+        # Patch the input name variable using the claim reference name
+        # This is required when creating namespace scoped claims
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.claimRef.name
+          toFieldPath: spec.forProvider.varmap.capability_name
+        # Patch the input namespace variable using the claim reference namespace
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.claimRef.namespace
+          toFieldPath: spec.forProvider.varmap.capability_namespace
+        # Patch the input capability protected variable with the capability protected specified in the parameters
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.parameters.capability.protected
+          toFieldPath: spec.forProvider.varmap.capability_protected
+        # Patch the input capability token variable with the capability token specified in the parameters
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.parameters.capability.token
+          toFieldPath: spec.forProvider.varmap.capability_token
+        # Patch the input capability version variable with the capability version specified in the parameters
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.parameters.capability.version
+          toFieldPath: spec.forProvider.varmap.capability_version
+        # Patch the environment name variable with the environment name specified in the parameters
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.parameters.environment.name
+          toFieldPath: spec.forProvider.varmap.environment_name
+        ########## CompositeResource and Workspace secrets ##########
+        # Patch the CompositeResource secret name with the CompoisteResource name
+        - type: ToCompositeFieldPath
+          fromFieldPath: metadata.name
+          toFieldPath: spec.writeConnectionSecretToRef.name
+        # Patch the Workspace secret name with the Workspace name        
+        - type: FromCompositeFieldPath
+          fromFieldPath: metadata.name
+          toFieldPath: spec.writeConnectionSecretToRef.name
+          transforms:
+          - string:
+              fmt: '%s-tf'
+              type: Format
+            type: string
+        ########## Capability Inputs ##########
+        # Capability specific input variables should be defined here
+        # Patch the fetch_vpc variable with the fetch vpc specified in the parameters
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.parameters.fetch.vpc
+          toFieldPath: spec.forProvider.varmap.fetch_vpc
+        # Patch the fetch_cluster variable with the fetch cluster specified in the parameters
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.parameters.fetch.cluster
+          toFieldPath: spec.forProvider.varmap.fetch_cluster
+        ########## Mandatory Outputs ##########
+        # The following outputs are mandatory for all mid93 capabilities
+        #
+        # Patch the output capability id variable to the status at provider capability id property
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.capability_id
+          toFieldPath: status.atProvider.capability.id
+        # Patch the output capability name variable to the status at provider capability name property
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.capability_name
+          toFieldPath: status.atProvider.capability.name
+        # Patch the output capability namespace variable to the status at provider capability namespace property
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.capability_namespace
+          toFieldPath: status.atProvider.capability.namespace
+        # Patch the output capability prefix variable to the status at provider capability prefix property
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.capability_prefix
+          toFieldPath: status.atProvider.capability.prefix
+        # Patch the output capability token variable to the status at provider capability token property
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.capability_token
+          toFieldPath: status.atProvider.capability.token
+        # Patch the output capability workspace variable to the status at provider capability workspace property
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.capability_workspace
+          toFieldPath: status.atProvider.capability.workspace
+        ########## Capability Outputs ##########
+        # Capability specific output variables should be defined here
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.application_name
+          toFieldPath: status.atProvider.application.name
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.team_names
+          toFieldPath: status.atProvider.team.names
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.workload_name
+          toFieldPath: status.atProvider.workload.name
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.cluster_arn
+          toFieldPath: status.atProvider.cluster.arn
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.cluster_name
+          toFieldPath: status.atProvider.cluster.name
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.cluster_oidc_arn
+          toFieldPath: status.atProvider.cluster.oidc.arn
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.cluster_oidc_issuer
+          toFieldPath: status.atProvider.cluster.oidc.issuer
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.cluster_permissionsBoundary_arn
+          toFieldPath: status.atProvider.cluster.permissionsBoundary.arn
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.account_name
+          toFieldPath: status.atProvider.account.name
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.workload_region
+          toFieldPath: status.atProvider.workload.region
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.workload_vpc_id
+          toFieldPath: status.atProvider.workload.vpc.id
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.workload_subnets
+          toFieldPath: status.atProvider.workload.subnets
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.workload_azs
+          toFieldPath: status.atProvider.workload.azs
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.workload_amp_endpoint
+          toFieldPath: status.atProvider.workload.amp.endpoint
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.environment_securitygroup_id
+          toFieldPath: status.atProvider.environment.securitygroup.id
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.environment_securitygroup_name
+          toFieldPath: status.atProvider.environment.securitygroup.name
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.estate_name
+          toFieldPath: status.atProvider.estate.name
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.platform_name
+          toFieldPath: status.atProvider.platform.name
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.grafana_endpoint
+          toFieldPath: status.atProvider.grafana.endpoint
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.grafana_roleArn
+          toFieldPath: status.atProvider.grafana.roleArn
+      connectionDetails:
+      ########## Secret Outputs ##########
+        # Capability specific output secrets should be defined here        
+        - name: grafana.key
+          #checkov:skip=CKV_SECRET_6: Storing password as K8s secret
+          fromConnectionSecretKey: grafana_key
