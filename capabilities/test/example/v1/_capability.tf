@@ -6,13 +6,13 @@
 # These values should be updated to reflect the values
 # defined in the XRD within the _crossplane.yaml file
 locals {
-  capability_api_version = "v1.template.fabric.gbgplc.com/v1" # The kubernetes API version that this capability is registered under
+  capability_api_version = "v1.template.mid93.mid93.com/v1" # The kubernetes API version that this capability is registered under
   capability_kind        = "XZahidExample"                         # The kubernetes kind that this capability as. Note this is the XRD kind, not the claim kind
 }
 
 # This references the platform data module
 # which can be used to retrieve information about the
-# underlying fabric platform infrastructure. It also
+# underlying mid93 platform infrastructure. It also
 # retrieves information around ownership and tagging
 # based on the environment name that has been passed
 # to it
@@ -48,7 +48,7 @@ resource "kubernetes_annotations" "this" {
   }
 
   annotations = {
-    "fabric.gbgplc.com/protected" = "${lower(var.capability_protected)}"
+    "mid93.mid93.com/protected" = "${lower(var.capability_protected)}"
   }
 }
 

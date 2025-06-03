@@ -1,7 +1,7 @@
 ########## MANDATORY VARIABLES ##########
-# The following variables are mandatory for every capability in fabric.
+# The following variables are mandatory for every capability in mid93.
 # They are required because they are the minimum required by the platform
-# capability to perform lookups on the fabric platfomr infrastructure in
+# capability to perform lookups on the mid93 platfomr infrastructure in
 # order to output values that can be used within this capability
 
 variable "capability_id" {
@@ -37,7 +37,7 @@ variable "capability_token" {
 }
 
 variable "environment_name" {
-  description = "The unique fabric environment name, as defined in the fabric catalogue"
+  description = "The unique mid93 environment name, as defined in the mid93 catalogue"
   type        = string
 }
 

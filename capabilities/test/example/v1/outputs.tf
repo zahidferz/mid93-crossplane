@@ -1,6 +1,6 @@
 ########## MANDATORY OUTPUTS ##########
 # The following outputs are mandatory for every capability
-# created through fabric. They ensure consistency and the
+# created through mid93. They ensure consistency and the
 # ability to identity
 
 output "capability_id" {

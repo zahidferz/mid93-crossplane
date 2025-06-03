@@ -29,7 +29,7 @@
 #   namespace             = var.capability_namespace
 #   name                  = var.encryption_key_name
 #   kind                  = "Key"
-#   api_version           = "v1.encryption.fabric.gbgplc.com/v1"
+#   api_version           = "v1.encryption.mid93.mid93.com/v1"
 #   current_capability_id = var.capability_id
 #   fail_on_not_found     = true # This will cause a failure if the key doesn't exist yet
 # }

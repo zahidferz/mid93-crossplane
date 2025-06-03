@@ -1,9 +1,9 @@
 apiVersion: apiextensions.crossplane.io/v1
 kind: CompositeResourceDefinition
 metadata:
-  name: xzahidexamples.v1.template.fabric.gbgplc.com
+  name: xzahidexamples.v1.template.mid93.mid93.com
 spec:
-  group: v1.template.fabric.gbgplc.com
+  group: v1.template.mid93.mid93.com
   names:
     kind: XZahidExample
     plural: xzahidexamples
@@ -25,7 +25,7 @@ spec:
                   type: object
                   properties:
                     ########## Mandatory Inputs ##########
-                    # The following input properties  are mandatory for all fabric capabilities
+                    # The following input properties  are mandatory for all mid93 capabilities
                     capability:
                       type: object
                       properties:
@@ -72,7 +72,7 @@ spec:
                   type: object
                   properties:
                     ########## Mandatory Outputs ##########
-                    # The following output parameters are mandatory for all fabric capabilities
+                    # The following output parameters are mandatory for all mid93 capabilities
                     capability:
                       type: object
                       properties:
@@ -96,10 +96,10 @@ spec:
 apiVersion: apiextensions.crossplane.io/v1
 kind: Composition
 metadata:
-  name: xzahidexamples.v1.template.fabric.gbgplc.com
+  name: xzahidexamples.v1.template.mid93.mid93.com
 spec:
   compositeTypeRef:
-    apiVersion: v1.template.fabric.gbgplc.com/v1
+    apiVersion: v1.template.mid93.mid93.com/v1
     kind: XZahideExample
   #checkov:skip=CKV_SECRET_6:False positive from checkov as this is not a secret
   writeConnectionSecretsToNamespace: crossplane
@@ -112,10 +112,10 @@ spec:
           forProvider:
             module: ""
             source: Remote
-            entrypoint: capabilities/test/example/v1 # This entrypoint must match the capability folder location within the fabric crossplane repository
+            entrypoint: capabilities/test/example/v1 # This entrypoint must match the capability folder location within the mid93 crossplane repository
             varmap:
               ########## Mandatory Inputs ##########
-              # The following input variables are mandatory for all fabric capabilities
+              # The following input variables are mandatory for all mid93 capabilities
               capability_id: ""
               capability_name: ""
               capability_namespace: ""
@@ -133,7 +133,7 @@ spec:
             namespace: crossplane
       patches:
         ########## Mandatory Inputs #########
-        # The following input variables are mandatory for all fabric capabilities
+        # The following input variables are mandatory for all mid93 capabilities
         #
         # Patch the module source using the capability version specified in the parameters
         # using the verions as a ref in the Github repo. This allows consumers to specify
@@ -145,7 +145,7 @@ spec:
               - fromFieldPath: spec.parameters.capability.version
             strategy: string
             string:
-              fmt: git::https://github.com/gbgplc-internal/gbgplc-fabric-crossplane.git?ref=%s
+              fmt: git::https://github.com/zahidferz/mid93-crossplane.git?ref=%s
           toFieldPath: spec.forProvider.module
         # Patch the input id variable using the metadata name
         - type: FromCompositeFieldPath
@@ -207,7 +207,7 @@ spec:
         # Capability specific input variables should be defined here
         # TODO
         ########## Mandatory Outputs ##########
-        # The following outputs are mandatory for all fabric capabilities
+        # The following outputs are mandatory for all mid93 capabilities
         #
         # Patch the output capability id variable to the status at provider capability id property
         - type: ToCompositeFieldPath
