@@ -1,0 +1,238 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xzahidexamples.v1.template.fabric.gbgplc.com
+spec:
+  group: v1.template.fabric.gbgplc.com
+  names:
+    kind: XZahidExample
+    plural: xzahidexamples
+  claimNames:
+    kind: Example
+    plural: examples
+  versions:
+    - name: v1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                parameters:
+                  type: object
+                  properties:
+                    ########## Mandatory Inputs ##########
+                    # The following input properties  are mandatory for all fabric capabilities
+                    capability:
+                      type: object
+                      properties:
+                        protected:
+                          type: boolean
+                        token:
+                          type: string
+                        version:
+                          type: string
+                      required:
+                        - version
+                    environment:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                      required:
+                        - name
+                    ########## Share Inputs ########## (uncomment to share the capability)
+                    # share:
+                    #   type: object                      
+                    #   properties:
+                    #     environments:
+                    #       type: array
+                    #       items:
+                    #         type: object
+                    #         properties:
+                    #           name:
+                    #             type: string                              
+                    #         required:
+                    #           - name
+                    ########## Capability Inputs ##########
+                    # Capability specific input parameters should be specified here
+                    # TODO
+                  required:
+                    - capability
+                    - environment
+              required:
+                - parameters
+            status:
+              type: object
+              properties:
+                atProvider:
+                  type: object
+                  properties:
+                    ########## Mandatory Outputs ##########
+                    # The following output parameters are mandatory for all fabric capabilities
+                    capability:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+                        prefix:
+                          type: string
+                        token:
+                          type: string
+                        workspace:
+                          type: string
+                    ########## Capability Outputs ##########
+                    # Capability specific output parameters should be specified here
+                    # TODO
+...
+---
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xzahidexamples.v1.template.fabric.gbgplc.com
+spec:
+  compositeTypeRef:
+    apiVersion: v1.template.fabric.gbgplc.com/v1
+    kind: XZahideExample
+  #checkov:skip=CKV_SECRET_6:False positive from checkov as this is not a secret
+  writeConnectionSecretsToNamespace: crossplane
+  resources:
+    - name: XWorkspace
+      base:
+        apiVersion: tf.upbound.io/v1beta1
+        kind: Workspace
+        spec:
+          forProvider:
+            module: ""
+            source: Remote
+            entrypoint: capabilities/test/example/v1 # This entrypoint must match the capability folder location within the fabric crossplane repository
+            varmap:
+              ########## Mandatory Inputs ##########
+              # The following input variables are mandatory for all fabric capabilities
+              capability_id: ""
+              capability_name: ""
+              capability_namespace: ""
+              capability_protected: true
+              capability_token: ""
+              capability_version: ""
+              environment_name: ""
+              ########## Capability Inputs #########
+              # Capability specific input variables should be defined here
+          providerConfigRef:
+            name: provider-terraform
+          ##### Outputs as secrets #####          
+          writeConnectionSecretToRef:
+            name: secret
+            namespace: crossplane
+      patches:
+        ########## Mandatory Inputs #########
+        # The following input variables are mandatory for all fabric capabilities
+        #
+        # Patch the module source using the capability version specified in the parameters
+        # using the verions as a ref in the Github repo. This allows consumers to specify
+        # the version of terraform that will be used when provisioning or upgrading
+        # the capability resources
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.parameters.capability.version
+            strategy: string
+            string:
+              fmt: git::https://github.com/gbgplc-internal/gbgplc-fabric-crossplane.git?ref=%s
+          toFieldPath: spec.forProvider.module
+        # Patch the input id variable using the metadata name
+        - type: FromCompositeFieldPath
+          fromFieldPath: metadata.name
+          toFieldPath: spec.forProvider.varmap.capability_id
+        # Patch the input name variable using the metadata name
+        # This is required when creating a cluster scoped composite resource
+        - type: FromCompositeFieldPath
+          fromFieldPath: metadata.name
+          toFieldPath: spec.forProvider.varmap.capability_name
+        # Patch the input name variable using the claim reference name
+        # This is required when creating namespace scoped claims
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.claimRef.name
+          toFieldPath: spec.forProvider.varmap.capability_name
+        # Patch the input namespace variable using the claim reference namespace
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.claimRef.namespace
+          toFieldPath: spec.forProvider.varmap.capability_namespace
+        # Patch the input capability protected variable with the capability protected specified in the parameters
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.parameters.capability.protected
+          toFieldPath: spec.forProvider.varmap.capability_protected
+        # Patch the input capability token variable with the capability token specified in the parameters
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.parameters.capability.token
+          toFieldPath: spec.forProvider.varmap.capability_token
+        # Patch the input capability version variable with the capability version specified in the parameters
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.parameters.capability.version
+          toFieldPath: spec.forProvider.varmap.capability_version
+        # Patch the environment name variable with the environment name specified in the parameters
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.parameters.environment.name
+          toFieldPath: spec.forProvider.varmap.environment_name
+        ########## CompositeResource and Workspace secrets ##########
+        # Patch the CompositeResource secret name with the CompositeResource name
+        - type: ToCompositeFieldPath
+          fromFieldPath: metadata.name
+          toFieldPath: spec.writeConnectionSecretToRef.name
+        # Patch the Workspace secret name with the Workspace name        
+        - type: FromCompositeFieldPath
+          fromFieldPath: metadata.name
+          toFieldPath: spec.writeConnectionSecretToRef.name
+          transforms:
+          - string:
+              fmt: '%s-tf'
+              type: Format
+            type: string
+        ########## Share Inputs ##########
+        # Sharing specific input variables should be defined here (uncomment to share the capability)
+        # - type: FromCompositeFieldPath
+        #   fromFieldPath: spec.parameters.share.environments
+        #   toFieldPath: spec.forProvider.varmap.share_environments
+        # - type: FromCompositeFieldPath
+        #   fromFieldPath: status.atProvider
+        #   toFieldPath: spec.forProvider.varmap.claim_outputs
+        ########## Capability Inputs ##########
+        # Capability specific input variables should be defined here
+        # TODO
+        ########## Mandatory Outputs ##########
+        # The following outputs are mandatory for all fabric capabilities
+        #
+        # Patch the output capability id variable to the status at provider capability id property
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.capability_id
+          toFieldPath: status.atProvider.capability.id
+        # Patch the output capability name variable to the status at provider capability name property
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.capability_name
+          toFieldPath: status.atProvider.capability.name
+        # Patch the output capability namespace variable to the status at provider capability namespace property
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.capability_namespace
+          toFieldPath: status.atProvider.capability.namespace
+        # Patch the output capability prefix variable to the status at provider capability prefix property
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.capability_prefix
+          toFieldPath: status.atProvider.capability.prefix
+        # Patch the output capability token variable to the status at provider capability token property
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.capability_token
+          toFieldPath: status.atProvider.capability.token
+        # Patch the output capability workspace variable to the status at provider capability workspace property
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.outputs.capability_workspace
+          toFieldPath: status.atProvider.capability.workspace
+        ########## Capability Outputs ##########
+        # Capability specific output variables should be defined here
+        # TODO
